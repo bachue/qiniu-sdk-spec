@@ -1,6 +1,6 @@
 # Credential 认证信息
 
-| 名称       | 类型   | 类型                |
+| 名称       | 类型   | 描述                |
 | ---------- | ------ | ------------------- |
 | access_key | String | AccessKey，必须存在 |
 | secret_key | String | SecretKey，必须存在 |
@@ -13,13 +13,13 @@
 
 #### 接受参数
 
-| 名称       | 类型       | 类型                              |
+| 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | data | [uint8] | 被签名的数据 |
 
 #### 返回参数
 
-| 名称       | 类型       | 类型                              |
+| 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | signed_data | String | 签名 |
 
@@ -35,13 +35,13 @@
 
 #### 接受参数
 
-| 名称       | 类型       | 类型                              |
+| 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | data | [uint8] | 被签名的数据 |
 
 #### 返回参数
 
-| 名称       | 类型       | 类型                              |
+| 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | signed_data | String | 签名（包含数据本身） |
 
@@ -58,7 +58,7 @@ encoded_data = urlsafe_base64_encode(data)
 
 #### 接受参数
 
-| 名称       | 类型       | 类型                              |
+| 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | url | String | URL |
 | content_type | String | Content-Type 信息 |
@@ -66,7 +66,7 @@ encoded_data = urlsafe_base64_encode(data)
 
 #### 返回参数
 
-| 名称       | 类型       | 类型                              |
+| 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | authorization | String | Authorization Header |
 
@@ -94,7 +94,7 @@ if content_type && body && content_type == "application/x-www-form-urlencoded" {
 
 #### 接受参数
 
-| 名称       | 类型       | 类型                              |
+| 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | url | String | URL |
 | method | String | HTTP 方法 |
@@ -103,7 +103,7 @@ if content_type && body && content_type == "application/x-www-form-urlencoded" {
 
 #### 返回参数
 
-| 名称       | 类型       | 类型                              |
+| 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | authorization | String | Authorization Header |
 
@@ -135,3 +135,104 @@ if content_type {
 
 "Qiniu ${sign(data_to_sign)}"
 ```
+
+### is_valid_request()
+
+判定给定的 HTTP 请求是否确实来自于七牛的回调
+
+#### 接受参数
+
+| 名称       | 类型       | 描述                            |
+| ---------- | ---------- | --------------------------------- |
+| request | Request，如果没有此类型，可以用 url，headers，body 三个字段替代 | HTTP 请求 |
+
+#### 返回参数
+
+| 名称       | 类型       | 描述                            |
+| ---------- | ---------- | --------------------------------- |
+| valid | bool | 是否是合法的请求 |
+
+#### 伪代码实现
+
+```
+if !request.header("Authorization") {
+	return false
+}
+!request.header("Authorization") == authorization_v1_for_request(request.url(), request.headers(), request.body())
+```
+
+### sign_upload_token()
+
+签发上传凭证
+
+#### 接受参数
+
+| 名称       | 类型       | 描述                            |
+| ---------- | ---------- | --------------------------------- |
+| upload_policy | UploadPolicy | 要签发的上传策略 |
+
+#### 返回参数
+
+| 名称       | 类型       | 描述                            |
+| ---------- | ---------- | --------------------------------- |
+| upload_token | String | 上传凭证 |
+
+#### 伪代码实现
+
+```
+sign_with_data(upload_policy.to_json())
+```
+
+### sign_download_url_with_deadline()
+
+签发上传凭证
+
+#### 接受参数
+
+| 名称       | 类型       | 描述                            |
+| ---------- | ---------- | --------------------------------- |
+| base_url | String | 要签发的下载地址 |
+| deadline | Time | 到期时间 |
+
+#### 返回参数
+
+| 名称       | 类型       | 描述                            |
+| ---------- | ---------- | --------------------------------- |
+| private_url | String | 私有空间的下载地址 |
+
+#### 伪代码实现
+
+```
+private_url = copy(base_url)
+if private_url.contains('?') {
+	private_url.append("&e=${deadline}")
+} else {
+	private_url.append("&e=${deadline}")
+}
+token = sign(private_url)
+private_url.append("&token=${token}")
+```
+
+### sign_download_url_with_lifetime()
+
+签发上传凭证
+
+#### 接受参数
+
+| 名称       | 类型       | 描述                            |
+| ---------- | ---------- | --------------------------------- |
+| base_url | String | 要签发的下载地址 |
+| lifetime | Duration（如果没有 Duration 类型，则使用 uint64，单位为秒） | 有效时长 |
+
+#### 返回参数
+
+| 名称       | 类型       | 描述                            |
+| ---------- | ---------- | --------------------------------- |
+| private_url | String | 私有空间的下载地址 |
+
+#### 伪代码实现
+
+```
+sign_download_url_with_deadline(base_url, now() + lifetime)
+```
+
