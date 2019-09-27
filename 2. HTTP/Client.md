@@ -49,7 +49,7 @@
 | hosts | [String] | HTTP 请求可用域名 |
 | headers | map<String, String> | HTTP 请求头 |
 | query | map<String, String> | HTTP URL 中的 query 部分 |
-| body | [uint8] | HTTP 请求体 |
+| body | [uint8] | HTTP 请求体（直接用二进制流，也可以用输入流替代，但必须在每次使用前 rewind） |
 | token | Token | HTTP 签名方式 |
 | idempotent | bool | 本次请求是否具有幂等性 |
 | full_read | bool | 是否将整个响应体全部读入内存 |
@@ -125,10 +125,7 @@ fn try_url(url, headers, body, token, idempotent, full_read, response_callback) 
 }
 
 prev_err = null
-for host in hosts {
-	if client.config.domains_manager.is_frozen(host) {
-		continue
-	}
+for host in client.config.domains_manager.choose(hosts) {
 	response, err = try_url(make_url(host, path, query))
 	if err && (err.retry_kind == Retryable || err.retry_kind == HostUnretryable) && is_retry_safe(request, idempotent, err) {
 		client.config.domains_manager.freeze(host, client.config.domain_freeze_duration)
@@ -137,6 +134,6 @@ for host in hosts {
 		return response
 	}
 }
-prev_err || HTTPError(HostUnretryable, true, NoHostAvailable) // 如果 hosts 为空或所有 hosts 都已经被冻结，则返回 NoHostAvailable 错误
+prev_err
 ```
 
