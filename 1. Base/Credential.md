@@ -144,7 +144,7 @@ if content_type {
 
 | 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
-| request | Request，如果没有此类型，可以用 url，headers，body 三个字段替代 | HTTP 请求 |
+| request | Request，如果没有内建支持此类型，可以用 url，headers，body 三个字段替代 | HTTP 请求 |
 
 #### 返回参数
 
