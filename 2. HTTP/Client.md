@@ -15,8 +15,8 @@
 | 名称       | 描述       |
 | ---------- | ---------- |
 |Retryable|总是可重试的|
-|ZoneUnretryable|当前主机不可重试|
-|HostUnretryable|当前域名不可重试|
+|ZoneUnretryable|当前区域不可重试|
+|HostUnretryable|当前主机不可重试|
 |Unretryable|不可重试的|
 
 ### 重试策略，幂等性与重试安全之间的关系
@@ -76,6 +76,8 @@ fn is_retry_safe(request, idempotent, err) {
 
 fn make_error_from_response(response) {
 	switch response.status {
+	case 400 && parse_json(response.body).get("error").contains("incorrect region"):
+		HTTPError(ZoneUnretryable, false, parse_json(response.body).get("error"))
 	case 400..499, 501, 573, 608, 612, 614, 615, 616, 619, 630, 631, 640, 701:
 		HTTPError(Unretryable, false, parse_json(response.body).get("error"))
 	case 502, 503, 571:
