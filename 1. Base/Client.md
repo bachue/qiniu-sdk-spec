@@ -20,4 +20,5 @@
 | 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | storage_manager | StorageManager | 存储管理器 |
+| uploader_manager | UploadManager | 上传管理器 |
 

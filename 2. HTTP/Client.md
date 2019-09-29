@@ -93,7 +93,7 @@ fn try_url(url, headers, body, token, idempotent, full_read, response_callback) 
 		token.sign(request)
 	}
 	for retried = 0; retried < client.config.http_request_retries; retried += 1 {
-		response, err = client.call(request) // 发送 HTTP 请求，这里假设该方法会自动处理 HTTP 转发
+		response, err = client.call(request) // 发送 HTTP 请求，这里假设该方法会自动处理 HTTP 转发。
 		if !err {
 			if (200..300).include(response.status_code) { // 只有返回值在 [200, 300) 之间才被允许
 				if full_read {
@@ -131,9 +131,9 @@ for host in client.config.domains_manager.choose(hosts) {
 		client.config.domains_manager.freeze(host, client.config.domain_freeze_duration)
 		prev_err = err
 	} else {
-		return response
+		return response, null
 	}
 }
-prev_err
+null, prev_err
 ```
 
