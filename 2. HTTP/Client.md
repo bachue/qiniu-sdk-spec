@@ -45,6 +45,7 @@
 
 | 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
+| method | String | HTTP 请求方法 |
 | path | String | HTTP 请求的路径部分（不含 query） |
 | hosts | [String] | HTTP 请求可用域名 |
 | headers | map<String, String> | HTTP 请求头 |
@@ -87,8 +88,8 @@ fn make_error_from_response(response) {
 	}
 }
 
-fn try_url(url, headers, body, token, idempotent, full_read, response_callback) {
-	request = build_request(url, headers, body)
+fn try_url(method, url, headers, body, token, idempotent, full_read, response_callback) {
+	request = build_request(method, url, headers, body)
 	if token {
 		token.sign(request)
 	}
@@ -126,7 +127,7 @@ fn try_url(url, headers, body, token, idempotent, full_read, response_callback) 
 
 prev_err = null
 for host in client.config.domains_manager.choose(hosts) {
-	response, err = try_url(make_url(host, path, query))
+	response, err = try_url(method, make_url(host, path, query))
 	if err && (err.retry_kind == Retryable || err.retry_kind == HostUnretryable) && is_retry_safe(request, idempotent, err) {
 		client.config.domains_manager.freeze(host, client.config.domain_freeze_duration)
 		prev_err = err

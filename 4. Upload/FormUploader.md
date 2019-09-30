@@ -53,7 +53,7 @@ multipart_encoder.add("file", open(file_path), file_name, mime)
 body = multipart_encoder.encode() // 这里将其转换为二进制数组，每次在使用时自动 rewind。如果编程语言只能提供输入流，那么需要在每次发出 HTTP 请求前显式 rewind。
 prev_err = null
 for up_urls in bucket_uploader.up_urls_list {
-	response, err = client.send_request("/", up_urls, {}, {}, body, null, true, true, make_response_callback(upload_token.policy()))
+	response, err = client.send_request(POST, "/", up_urls, {}, {}, body, null, true, true, make_response_callback(upload_token.policy()))
 	if err {
 		switch err.retry_kind {
 			case Retryable, HostUnretryable, ZoneUnretryable:
@@ -109,7 +109,7 @@ multipart_encoder.add("file", stream, file_name, mime)
 body = multipart_encoder.encode() // 这里将其转换为二进制数组，每次在使用时自动 rewind。如果编程语言只能提供输入流，那么这里可能无法支持多区域重试
 prev_err = null
 for up_urls in bucket_uploader.up_urls_list {
-	response, err = client.send_request("/", up_urls, {}, {}, body, null, true, true, make_response_callback(upload_token.policy()))
+	response, err = client.send_request(POST, "/", up_urls, {}, {}, body, null, true, true, make_response_callback(upload_token.policy()))
 	if err {
 		switch err.retry_kind {
 			case Retryable, HostUnretryable, ZoneUnretryable:
