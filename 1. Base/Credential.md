@@ -180,7 +180,7 @@ if !request.header("Authorization") {
 #### 伪代码实现
 
 ```
-sign_with_data(upload_policy.to_json())
+sign_with_data(dump_json(upload_policy))
 ```
 
 ### sign_download_url_with_deadline()

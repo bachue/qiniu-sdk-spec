@@ -6,6 +6,7 @@
 | ---------- | ---------- | --------------------------------- |
 | bucket_uploader | BucketUploader | 上传管理器 |
 | multipart_encoder | Multipart 编码器，该类型在不同编程语言种可能有不一样的实现 | 编码 Multipart 类型的数据 |
+| upload_logger | UploadLogger，可选 | 上传日志 |
 | client | Client | HTTP 客户端 |
 
 ### 支持接口
@@ -21,8 +22,9 @@
 | mime     | String     | MIME 类型，可选   |
 | upload_token     | UploadToken     | 上传凭证 |
 | key   | String | 对象名称                |
-| vars  | map<String, String> | 自定义变量 |
-| metadata  | map<String, String> | 元信息 |
+| vars  | [String:String] | 自定义变量 |
+| metadata  | [String:String] | 元信息 |
+| uploading_progress_callback | fn(uint, uint) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
 | checksum_enabled | bool | 是否启用校验，总是默认为启用 |
 
 ##### 返回参数
@@ -32,9 +34,25 @@
 | result | UploadResult | 上传结果 |
 | error | HTTPError | HTTP 错误信息 |
 
-##### 伪代码
+##### 伪代码实现
 
 ```
+fn response_callback(response, duration) {
+	err = upload_response_callback(response)
+	if !err {
+		if upload_logger {
+			upload_logger.log(make_upload_log_record_from_response(response, duration, Form, response.body.len(), response.body.len()))
+		}
+	}
+	err
+}
+
+fn error_callback(base_url, err, duration) {
+	if upload_logger {
+		upload_logger.log(make_upload_log_record_from_error(duration, Form, base_url, err, response.body.len()))
+	}
+}
+
 multipart_encoder.add("token", upload_token)
 if key {
 	multipart_encoder.add("key", key)
@@ -53,7 +71,7 @@ multipart_encoder.add("file", open(file_path), file_name, mime)
 body = multipart_encoder.encode() // 这里将其转换为二进制数组，每次在使用时自动 rewind。如果编程语言只能提供输入流，那么需要在每次发出 HTTP 请求前显式 rewind。
 prev_err = null
 for up_urls in bucket_uploader.up_urls_list {
-	response, err = client.send_request(POST, "/", up_urls, {}, {}, body, null, true, true, make_response_callback(upload_token.policy()))
+	response, err = client.send_request(POST, "/", up_urls, {}, {}, body, null, true, true, false, uploading_progress_callback, null, response_callback, error_callback)
 	if err {
 		switch err.retry_kind {
 			case Retryable, HostUnretryable, ZoneUnretryable:
@@ -81,8 +99,9 @@ null, prev_err
 | mime     | String     | MIME 类型，可选   |
 | upload_token     | UploadToken     | 上传凭证 |
 | key   | String | 对象名称                |
-| vars  | map<String, String> | 自定义变量 |
-| metadata  | map<String, String> | 元信息 |
+| vars  | [String:String] | 自定义变量 |
+| metadata  | [String:String] | 元信息 |
+| uploading_progress_callback | fn(uint, uint) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
 
 ##### 返回参数
 
@@ -91,7 +110,7 @@ null, prev_err
 | result | UploadResult | 上传结果 |
 | error | HTTPError | HTTP 错误信息 |
 
-##### 伪代码
+##### 伪代码实现
 
 ```
 multipart_encoder.add("token", upload_token)
@@ -109,7 +128,7 @@ multipart_encoder.add("file", stream, file_name, mime)
 body = multipart_encoder.encode() // 这里将其转换为二进制数组，每次在使用时自动 rewind。如果编程语言只能提供输入流，那么这里可能无法支持多区域重试
 prev_err = null
 for up_urls in bucket_uploader.up_urls_list {
-	response, err = client.send_request(POST, "/", up_urls, {}, {}, body, null, true, true, make_response_callback(upload_token.policy()))
+	response, err = client.send_request(POST, "/", up_urls, {}, {}, body, null, true, true, false, uploading_progress_callback, null, response_callback, error_callback)
 	if err {
 		switch err.retry_kind {
 			case Retryable, HostUnretryable, ZoneUnretryable:

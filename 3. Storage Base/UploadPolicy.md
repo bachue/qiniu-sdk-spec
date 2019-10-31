@@ -113,7 +113,6 @@ policy
 | set_return_url() | 设置 return_url | return_url | `policy.return_url = return_url` |
 | set_return_body() | 设置 return_body | return_body | `policy.return_url = return_body` |
 | set_callback() | 设置 callback 相关属性 | urls, host, body, type | `policy.callback_url = urls.join(';'); policy.callback_host = host; policy.callback_body = body; policy.callback_body_type = type` |
-| set_persistent_ops() | 设置 persistent_ops 相关属性 | ops, notify_url, pipeline | `policy.persistent_ops = ops.join(';'); policy.persistent_notify_url = notify_url; policy.persistent_pipeline = pipeline` |
 | save_as() | 设置 save_key 相关属性 | save_key, force | `policy.save_key = save_key; policy.force_save_key = force` |
 | set_file_size_range() | 设置 fsize | min, max | `policy.fsize_min = min; policy.fsize_limit = max` |
 | limit_mime() | 设置 MIME 列表 | mime | `policy.mime_limit = mime.join(';')` |
@@ -137,9 +136,6 @@ policy
 | callback_host() | 回调 HOST | String | `policy.callback_host` |
 | callback_body() | 回调请求体 | String | `policy.callback_body` |
 | callback_body_type() | 回调请求体类型 | String | `policy.callback_body_type` |
-| persistent_ops() | 持久化操作指令 | [String] | `policy.persistent_ops.split(';')` |
-| persistent_notify_url() | 持久化操作回调 URL | String | `policy.persistent_notify_url` |
-| persistent_pipeline() | 持久化操作管道名称 | String | `policy.persistent_pipeline` |
 | save_key() | 自定义 Object 名称 | String | `policy.save_key` |
 | force_save_key() | 强制使用自定义 Object 名称 | String | `policy.force_save_key` |
 | file_size_range() | 文件尺寸范围 | (uint, uint) | `(policy.fsize_min, policy.fsize_limit)` |

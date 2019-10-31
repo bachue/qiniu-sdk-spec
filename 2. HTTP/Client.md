@@ -46,15 +46,19 @@
 | 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
 | method | String | HTTP 请求方法 |
-| path | String | HTTP 请求的路径部分（不含 query） |
-| hosts | [String] | HTTP 请求可用域名 |
-| headers | map<String, String> | HTTP 请求头 |
-| query | map<String, String> | HTTP URL 中的 query 部分 |
+| path | String | HTTP 请求的 URL 路径部分（不含 query） |
+| base_urls | [String] | HTTP 请求可用基础 URL（含协议，不含路径） |
+| headers | [String:String] | HTTP 请求头 |
+| query | [String:String] | HTTP URL 中的 query 部分 |
 | body | [uint8] | HTTP 请求体（直接用二进制流，也可以用输入流替代，但必须在每次使用前 rewind） |
 | token | Token | HTTP 签名方式 |
 | idempotent | bool | 本次请求是否具有幂等性 |
 | full_read | bool | 是否将整个响应体全部读入内存 |
-| response_callback | fn(Response, Request) -> HTTPError | 回调函数 |
+| follow_redirection | bool | 是否追踪重定向 |
+| uploading_progress_callback | fn(uint, uint) | 上传进度回调函数，第一个参数为请求已经上传的数据尺寸，第二个参数为请求总共要上传的数据尺寸 |
+| downloading_progress_callback | fn(uint, uint) | 下载进度回调函数，第一个参数为响应已经下载的数据尺寸，第二个参数为响应总共要下载的数据尺寸 |
+| response_callback | fn(Response, Duration) -> HTTPError（如果没有 Duration 类型，则使用 uint64，单位为毫秒） | 收到 HTTP 响应后的回调函数，如果解析响应内容失败，可以返回错误并进入重试流程。第一个参数为 HTTP 响应，第二个参数为本次请求响应时间 |
+| error_callback | fn(String, HTTPError, Duration)（如果没有 Duration 类型，则使用 uint64，单位为毫秒） | 收到 HTTP 请求或响应错误后的回调函数。第一个参数为发生错误的基础 URL（含协议，不含路径），第二个参数为错误，第三个参数为本次请求响应时间 |
 
 ##### 返回参数
 
@@ -88,20 +92,23 @@ fn make_error_from_response(response) {
 	}
 }
 
-fn try_url(method, url, headers, body, token, idempotent, full_read, response_callback) {
-	request = build_request(method, url, headers, body)
+fn try_choice(choice) {
+	// 构建 HTTP 请求对象
+	request = build_request(method, make_url(choice.base_url, path, query), choice.socket_addrs, headers, body, follow_redirection, uploading_progress_callback, downloading_progress_callback)
 	if token {
 		token.sign(request)
 	}
+	err = null
 	for retried = 0; retried < client.config.http_request_retries; retried += 1 {
-		response, err = client.call(request) // 发送 HTTP 请求，这里假设该方法会自动处理 HTTP 转发。
+	  begin_at = now()
+		response, err = client.call(request) // 发送 HTTP 请求，假设该访问按照所有提供的参数处理请求。
 		if !err {
 			if (200..300).include(response.status_code) { // 只有返回值在 [200, 300) 之间才被允许
 				if full_read {
 					response.body, ok = response.body.read() // 从响应体中读出全部数据，可能会出错
 					if !ok {
 						err = HTTPError(Retryable, false, IOError) // 读取请求体失败，被认为是 IO 错误，可重试但重试不安全
-					} else if response.body.len() != response.header("ContentLength") {
+					} else if response.body.len() != response.header("Content-Length") {
 						err = HTTPError(Retryable, false, EOFError) // 读取到的数据量不匹配，被认为是 EOF 错误，可重试但重试不安全
 					}
 				}
@@ -116,9 +123,11 @@ fn try_url(method, url, headers, body, token, idempotent, full_read, response_ca
 			}
 		}
 		if err && err.retry_kind == Retryable && is_retry_safe(request, idempotent, err) {
-			wait(client.config.http_request_retry_relay)
-			continue
-		} else {
+			if error_callback {
+				error_callback(choice.base_url, err, now() - begin_at)
+			}
+			wait(client.config.http_request_retry_delay / 2, client.config.http_request_retry_delay) // 等待随机时长，随机范围为设置的等待时间的 50% - 100%
+		} else { // 这里不回调 error_callback，由外层回调
 			return null, err
 		}
 	}
@@ -126,11 +135,24 @@ fn try_url(method, url, headers, body, token, idempotent, full_read, response_ca
 }
 
 prev_err = null
-for host in client.config.domains_manager.choose(hosts) {
-	response, err = try_url(method, make_url(host, path, query))
+choices, err = client.config.domains_manager.choose(base_urls)
+if err != null { // 存在传入的 URL 不合法
+	return null, HTTPError(Unretryable, false, err)
+}
+for choice in choices {
+  begin_at = now()
+	response, err = try_choice(choice)
 	if err && (err.retry_kind == Retryable || err.retry_kind == HostUnretryable) && is_retry_safe(request, idempotent, err) {
-		client.config.domains_manager.freeze(host, client.config.domain_freeze_duration)
+		client.config.domains_manager.freeze_url(choice.base_url)
+		if error_callback {
+			error_callback(choice.base_url, err, now() - begin_at)
+		}
 		prev_err = err
+	} else if err {
+		if error_callback {
+			error_callback(choice.base_url, err, now() - begin_at)
+		}
+		return null, err
 	} else {
 		return response, null
 	}

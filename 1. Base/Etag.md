@@ -174,5 +174,5 @@ reader.result()
 ##### 伪代码实现
 
 ```
-from_reader(open_file(path))
+from_reader(open(path))
 ```
