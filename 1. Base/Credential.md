@@ -98,7 +98,7 @@ if content_type && body && content_type == "application/x-www-form-urlencoded" {
 | ---------- | ---------- | --------------------------------- |
 | url | String | URL |
 | method | String | HTTP 方法 |
-| content_type | String | Content-Type 信息 |
+| headers | [String:String] | HTTP 头 |
 | body | [uint8] | 请求体 |
 
 #### 返回参数
@@ -110,6 +110,14 @@ if content_type && body && content_type == "application/x-www-form-urlencoded" {
 #### 伪代码实现
 
 ```
+fn append_data_to_sign_for_x_qiniu_headers(data_to_sign, headers) {
+	x_qiniu_headers = headers.filter((key, _) -> { return key.starts_with("X-Qiniu-") }).map((key, value) -> { return "${key}: ${value}" })
+	for header_line in x_qiniu_headers.sort() {
+		data_to_sign.append(header_line)
+		data_to_sign.append('\n')
+	}
+}
+
 parsed_url = parse_url(url)
 data_to_sign = []
 data_to_sign.append(method.upper())
@@ -124,12 +132,16 @@ if parsed_url.port() { // 这里的语义是，URL 中是否显式包含端口�
 	data_to_sign.append(":${parsed_url.port()}")
 }
 data_to_sign.append('\n')
+content_type = headers.get("content_type")
 if content_type {
-	data_to_sign.append("\nContent-Type: ${content_type}\n\n")
+	data_to_sign.append("\nContent-Type: ${content_type}\n")
+	append_data_to_sign_for_x_qiniu_headers(data_to_sign, headers)
+	data_to_sign.append('\n')
 	if body && (content_type == "application/x-www-form-urlencoded" || content_type == "application/json") {
 		data_to_sign.append(body)
 	}
 } else {
+	append_data_to_sign_for_x_qiniu_headers(data_to_sign, headers)
 	data_to_sign.append('\n')
 }
 
