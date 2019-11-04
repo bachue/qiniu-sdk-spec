@@ -11,7 +11,8 @@
 | 名称          | 类型               | 描述                      |
 | ------------- | ------------------ | ------------------------- |
 | config     | Config     | 客户端所用配置信息                |
-|log_buffer|[u8]| 日志缓存，初始化尺寸为 `config.max_uplog_size`，对于多线程环境，该日志文件的读写应该使用读写锁保护 |
+|log_buffer|[u8]| 日志缓存，初始化尺寸为 `config.max_uplog_size` |
+|log_buffer_lock|RWMutex| 日志缓存的读写锁，对于多线程环境，对日志缓存的读写应该使用读写锁保护 |
 | http_client        | Client             | HTTP 客户端               |
 | upload_token | String | 上传凭证，每次上传新的文件时都应该对 upload_token 进行赋值，确保在上传日志时使用最新的 upload_token |
 
@@ -59,17 +60,21 @@
 
 ```
 fn log_buffer_len() {
-	// 在多线程的情况下，本方法的调用需要加锁保护
-	log_buffer.len()
+	log_buffer_lock.rlock()
+	len = log_buffer.len()
+	log_buffer_lock.runlock()
+	len
 }
 
 fn upload_log_buffer_and_clean() {
-	// 在多线程的情况下，本方法的调用需要加锁保护
+	log_buffer_lock.lock()
 	err = upload_log_buffer()
 	if err {
+		log_buffer_lock.unlock()
 		return err
 	}
 	log_buffer.clear()
+	log_buffer_lock.unlock()
 	null
 }
 
@@ -87,7 +92,9 @@ fn async_upload_log_buffer_and_clean() {
 if log_buffer_len() < config.max_uplog_size {
 	data = "${record.to_string()}\n"
 	if log_buffer_len() + data.len() < config.max_uplog_size {
-		log_buffer.push(data) // 在多线程的情况下，对文件的写入需要加锁保护
+		log_buffer_lock.lock()
+		log_buffer.push(data) 
+		log_buffer_lock.unlock()
 	}
 }
 if log_buffer_len() >= config.uplog_upload_threshold {

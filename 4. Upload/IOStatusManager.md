@@ -92,7 +92,7 @@ if status == Uploading {
 
 ```
 lock.lock()
-status = Error(err)
+status = Error(error)
 lock.unlock()
 ```
 
@@ -113,6 +113,7 @@ lock.unlock()
 #### 伪代码实现
 
 ```
+// 这里无需再加锁
 if status == Error {
 	error
 } else {

@@ -5,7 +5,7 @@
 | 名称       | 类型       | 描述                                               |
 | ---------- | ---------- | -------------------------------------------------- |
 | recorder | Recorder | 日志记录仪 |
-| key_generator | fn(Path, String) -> String | 回调函数用于生成上传记录器的键，传入要上传的文件路径和对象名称，返回上传记录器的键，默认为参数连接后经过 SHA1编码后的值 |
+| key_generator | fn(Path, String) -> String | 回调函数用于生成上传记录器的键，传入要上传的文件路径和对象名称，返回上传记录器的键，默认为参数连接后经过 SHA1编码后的值，以尽量保证不会冲突。 |
 | upload_block_lifetime    | Duration（如果没有 Duration 类型，则使用 uint64，单位为秒） | 上传分块尺寸，尺寸越小越适合弱网环境，必须是 4 MB 的倍数。单位为字节，默认为 4 MB |
 | always_flush_records    | bool | 是否在每次写入上传记录后刷新磁盘，默认不刷新 |
 
@@ -82,7 +82,7 @@ if always_flush_records {
 		return null, err
 	}
 }
-FileUploadRecordMedium { medium: medium, always_flush_records: always_flush_records }, null
+FileUploadRecordMedium { medium: medium, medium_lock: make_mutex(), always_flush_records: always_flush_records }, null
 ```
 
 #### open_for_appending
@@ -110,7 +110,7 @@ medium, err = recorder.open(key_generator(path, key), false)
 if err {
 	return null, err
 }
-FileUploadRecordMedium { medium: medium, always_flush_records: always_flush_records }, null
+FileUploadRecordMedium { medium: medium, medium_lock: make_mutex(), always_flush_records: always_flush_records }, null
 ```
 
 #### drop()
@@ -213,6 +213,7 @@ for {
 | 名称       | 类型       | 描述                                               |
 | ---------- | ---------- | -------------------------------------------------- |
 | medium | RecordMedium | 日志记录介质 |
+| medium_lock | Mutex | 日志记录介质的锁，在多线程情况下，介质的写入需要加锁保护 |
 | always_flush_records    | bool | 是否在每次写入上传记录后刷新磁盘，默认不刷新 |
 
 ### 支持接口
@@ -238,22 +239,25 @@ for {
 ##### 伪代码实现
 
 ```
-// 在多线程环境中，medium 需要被加锁保护
 item = FileUploadRecordMediumBlockItem {
 	etag: etag,
 	part_number: part_number,
 	created_timestamp: now().to_timestamp(),
 	block_size: block_size
 }
+medium_lock.lock()
 err = medium.write("${dump_json(item)}\n")
 if err {
+	medium_lock.unlock()
 	return err
 }
 if always_flush_records {
 	err = medium.flush()
 	if err {
+		medium_lock.unlock()
 		return err
 	}
 }
+medium_lock.unlock()
 null
 ```

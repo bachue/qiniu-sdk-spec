@@ -5,9 +5,11 @@
 | 名称       | 类型       | 描述                                               |
 | ---------- | ---------- | -------------------------------------------------- |
 | inner | DomainsManagerInnerData | 内部数据 |
-| persistent_file_path | Path，该值可不填 | 自动持久化存储时的文件路径 |
-| last_persistent_time | Time | 最近一次持久化时间，必须是单调时间。如果是在多线程环境下，为避免多个并发持久化请求，应该对持久化时间的读写加锁。 |
-| last_refresh_time | Time | 最近一次刷新解析结果缓存的时间，必须是单调时间。如果是在多线程环境下，为避免多个并发刷新请求，应该对刷新时间的读写加锁。 |
+| persistent_file_path | Path | 自动持久化存储时的文件路径，该值可不填 |
+| last_persistent_time | Time | 最近一次持久化时间，必须是单调时间 |
+| last_persistent_time_lock | Mutex | 最近一次持久化时间的锁。在多线程环境下，为避免多个并发持久化请求，应该对持久化时间的读写加锁 |
+| last_refresh_time | Time | 最近一次刷新解析结果缓存的时间，必须是单调时间 |
+| last_refresh_time_lock | Mutex | 最近一次刷新解析结果缓存的时间的锁。在多线程环境下，为避免多个并发刷新请求，应该对刷新时间的读写加锁 |
 
 ## 内部依赖结构体
 
@@ -26,8 +28,10 @@
 
 | 名称       | 类型       | 描述                                               |
 | ---------- | ---------- | -------------------------------------------------- |
-| frozen_urls | [String:Time]（对于存在多线程的情况，该类型必须保证线程安全。此外，存储的时间必须是单调时间）| 存储被冻结的基础 URL 及解冻时间 |
+| frozen_urls | [String:Time] | 存储被冻结的基础 URL 及解冻时间，解冻时间必须是单调时间 |
+| frozen_urls_lock | Mutex | frozen_urls 的锁，在多线程环境下，为了避免并发冲突，对 frozen_urls 的读写加锁（文档中的锁用法可能比较低效，建议使用更加高效的线程安全映射库替代） |
 | resolutions | [String:CachedResolutions] | 存储基础 URL 及其解析结果和缓存过期时间 |
+| resolutions_lock | Mutex | resolutions 的锁，在多线程环境下，为了避免并发冲突，对 resolutions 的读写加锁（文档中的锁用法可能比较低效，建议使用更加高效的线程安全映射库替代） |
 |url_frozen_duration|Duration（如果没有 Duration 类型，则使用 uint64，单位为秒）|URL 冻结时长，默认为 10 分钟|
 |resolutions_cache_lifetime|Duration（如果没有 Duration 类型，则使用 uint64，单位为秒）|URL 解析结果缓存时长，默认为 1 小时|
 |disable_url_resolution|bool|是否禁止 URL 解析功能，默认为 false|
@@ -61,33 +65,43 @@ DomainsManager 的构造方法既支持从持久化的文件中读取，也支�
 
 ```
 fn auto_persistent() {
-	if inner.persistent_interval && inner.last_persistent_time + inner.persistent_interval > now() { // 在多线程情况下，inner.last_persistent_time 的所有读写都应该上锁
-		persistent() // 参考下文的伪代码实现
+	if inner.persistent_interval
+		inner.last_persistent_time_lock.lock()
+		if inner.last_persistent_time + inner.persistent_interval > now() {
+			persistent() // 参考下文的伪代码实现
+		}
+		inner.last_persistent_time_lock.unlock()
 	}
 }
 
 fn auto_refresh() {
 	if inner.refresh_resolutions_interval {
-		if inner.last_refresh_time > now() + inner.refresh_resolutions_interval { // 在多线程情况下，inner.last_refresh_time 的所有读写都应该上锁
+		inner.last_refresh_time_lock.lock()
+		if inner.last_refresh_time > now() + inner.refresh_resolutions_interval {
 			async_refresh() // 参考下文的伪代码实现
 		}
+		inner.last_refresh_time_lock.unlock()
 	}
 }
 
 fn is_frozen(base_url) {
+	result = false
+	inner.frozen_urls_lock.lock()
   unfreeze_time = inner.frozen_urls.get(base_url)
   if unfreeze_time {
     if unfreeze_time < now() {
       inner.frozen_urls.delete(base_url)
-      return false
+    } else {
+    	result = true
     }
-    return true
   }
-  false
+  inner.frozen_urls_lock.unlock()
+  result
 }
 
 fn lock_and_resolve_and_update_cache(base_url) {
-	resolution = inner.resolutions.lock_and_get(base_url) // 在多线程环境下，修改缓存必须锁住可能修改的映射项，然后重新检查数据。否则可能发生多个相同的 URL 并发解析时，缓存完全无法起作用的情况。
+	inner.resolutions_lock.lock()
+	resolution = inner.resolutions.get(base_url)
 	results = []
 	if resolution {
 		if resolution.cache_deadline < now() {
@@ -106,17 +120,19 @@ fn lock_and_resolve_and_update_cache(base_url) {
 				results = socket_addrs
 			}
 	}
-	resolution.unlock() // 离开前解锁
+	inner.resolution_lock.unlock() // 离开前解锁
 	results
 }
 
 fn resolve(base_url) {
+	inner.resolutions_lock.lock()
 	resolution = inner.resolutions.get(base_url)
+	inner.resolutions_lock.unlock()
 	if resolution {
 		if resolution.cache_deadline < now() {
 			lock_and_resolve_and_update_cache(base_url)
 		} else {
-			return resolution.socket_addrs
+			resolution.socket_addrs
 		}
 	} else {
 		lock_and_resolve_and_update_cache(base_url)
@@ -142,7 +158,9 @@ for base_url in base_urls {
 	}
 }
 if base_urls.len() > 0 && chosen.len() == 0 { // 如果所有域名都已经被冻结，则只选择解冻时间最早的域名尝试
+	inner.frozen_urls_lock.lock()
 	sorted = base_urls.sort_by((base_url) => inner.frozen_urls.get(base_url))
+	inner.frozen_urls_lock.unlock()
 	chosen = [make_choice(sorted.get(0))]
 }
 
@@ -167,7 +185,9 @@ chosen
 #### 伪代码实现
 
 ```
+inner.frozen_urls_lock.lock()
 inner.frozen_urls.set(base_url, now() + duration)
+inner.frozen_urls_lock.unlock()
 auto_persistent() // 参考上文的伪代码实现
 ```
 
@@ -184,7 +204,9 @@ auto_persistent() // 参考上文的伪代码实现
 #### 伪代码实现
 
 ```
+inner.frozen_urls_lock.lock()
 inner.frozen_urls.clear()
+inner.frozen_urls_lock.unlock()
 auto_persistent() // 参考上文的伪代码实现
 ```
 
@@ -215,7 +237,9 @@ fn persistent_to_file() {
 
 err = persistent_to_file()
 if !err {
-	last_persistent_time = now()
+	inner.last_persistent_time_lock.lock() // 这里假设该锁支持可重入，否则可能会死锁
+	inner.last_persistent_time = now()
+	inner.last_persistent_time_lock.unlock()
 }
 err
 ```
@@ -247,17 +271,23 @@ fn sync_resolve_urls(urls) { // 由于刷新本身是异步行为，所以可以
 }
 
 to_refresh_urls = []
+inner.resolutions_lock.lock()
 inner.resolutions.for_each((url, resolution) -> {
 	if resolution.cache_deadline <= now() {
 		to_refresh_urls.push(url)
 	}
 })
+inner.resolutions_lock.unlock()
 if to_refresh_urls.len() > 0 {
 	spawn_thread(() -> {
 		sync_resolve_urls(to_refresh_urls)
+		inner.last_refresh_time_lock.lock() // 这里假设该锁支持可重入，否则可能会死锁
 		inner.last_refresh_time = now()
+		inner.last_refresh_time_lock.unlock()
 	})
 } else {
+	inner.last_refresh_time_lock.lock() // 这里假设该锁支持可重入，否则可能会死锁
 	inner.last_refresh_time = now()
+	inner.last_refresh_time_lock.unlock()
 }
 ```
