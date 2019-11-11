@@ -130,13 +130,19 @@ fn resolve(base_url) {
 	inner.resolutions_lock.unlock()
 	if resolution {
 		if resolution.cache_deadline < now() {
-			lock_and_resolve_and_update_cache(base_url)
-		} else {
-			resolution.socket_addrs
+			// 如果解析缓存已经过期，先继续使用该缓存，但是会触发线程来刷新
+			async_update_cache(base_url)
 		}
+		resolution.socket_addrs
 	} else {
 		lock_and_resolve_and_update_cache(base_url)
 	}
+}
+
+fn async_update_cache(base_url) {
+	spawn_thread(() => {
+		lock_and_resolve_and_update_cache(base_url)
+	})
 }
 
 fn make_choice(base_url) {
