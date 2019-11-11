@@ -16,7 +16,7 @@
 
 | 名称          | 类型         | 描述                                                         |
 | ------------- | ------------ | ------------------------------------------------------------ |
-| config        | Config       | 客户端所用配置信息                                           |
+| config        | Config       | SDK 客户端所用配置信息                                           |
 | upload_logger | UploadLogger | 上传日志，如果 `config.uplog_disabled` 为 true，则该属性为 `null` |
 
 ### 支持接口

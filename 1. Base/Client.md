@@ -1,9 +1,12 @@
-# Client 客户端
+# Client 七牛 SDK 客户端
+
+这里的客户端是针对七牛服务器而言，而并非指该类是运行在客户端应用程序上。
+实际上，该类由于会存储用户的 SecretKey，因此不推荐在客户端应用程序上使用，而应该只在服务器端应用程序上使用。
 
 | 名称       | 类型       | 描述                              |
 | ---------- | ---------- | --------------------------------- |
-| credential | Credential | 客户端存储的 AccessKey，SecretKey |
-| config     | Config     | 客户端所用配置信息                |
+| credential | Credential | 七牛 SDK 客户端存储的 AccessKey，SecretKey |
+| config     | Config     | 七牛 SDK 客户端所用配置信息                |
 
 ## 支持接口
 
@@ -17,13 +20,13 @@
 | ---------- | ---------- | --------------------------------- |
 | access_key | String | 七牛 Access Key |
 | secret_key | String | 七牛 Secret Key |
-| config | Config | 七牛客户端配置 |
+| config | Config | 七牛 SDK 客户端配置 |
 
 #### 返回参数
 
 | 名称       | 类型       | 描述                            |
 | ---------- | ---------- | --------------------------------- |
-| client | Client | SDK 客户端 |
+| client | Client | 七牛 SDK 客户端 |
 
 ### storage_manager()
 

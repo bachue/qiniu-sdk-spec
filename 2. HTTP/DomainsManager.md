@@ -65,7 +65,7 @@ DomainsManager 的构造方法既支持从持久化的文件中读取，也支�
 
 ```
 fn auto_persistent() {
-	if inner.persistent_interval
+	if inner.persistent_interval {
 		inner.last_persistent_time_lock.lock()
 		if inner.last_persistent_time + inner.persistent_interval > now() {
 			persistent() // 参考下文的伪代码实现
@@ -87,16 +87,16 @@ fn auto_refresh() {
 fn is_frozen(base_url) {
 	result = false
 	inner.frozen_urls_lock.lock()
-  unfreeze_time = inner.frozen_urls.get(base_url)
-  if unfreeze_time {
-    if unfreeze_time < now() {
-      inner.frozen_urls.delete(base_url)
-    } else {
-    	result = true
-    }
-  }
-  inner.frozen_urls_lock.unlock()
-  result
+	unfreeze_time = inner.frozen_urls.get(base_url)
+	if unfreeze_time {
+		if unfreeze_time < now() {
+			inner.frozen_urls.delete(base_url)
+		} else {
+			result = true
+		}
+	}
+	inner.frozen_urls_lock.unlock()
+	result
 }
 
 fn lock_and_resolve_and_update_cache(base_url) {
@@ -114,11 +114,11 @@ fn lock_and_resolve_and_update_cache(base_url) {
 			results = resolution.socket_addrs
 		}
 	} else {
-			socket_addrs, err = base_url.to_socket_addrs()
-			if !err {
-				inner.resolutions.set(base_url, CachedResolutions { socket_addrs: socket_addrs, cache_deadline: now() + inner.resolutions_cache_lifetime })
-				results = socket_addrs
-			}
+		socket_addrs, err = base_url.to_socket_addrs()
+		if !err {
+			inner.resolutions.set(base_url, CachedResolutions { socket_addrs: socket_addrs, cache_deadline: now() + inner.resolutions_cache_lifetime })
+			results = socket_addrs
+		}
 	}
 	inner.resolution_lock.unlock() // 离开前解锁
 	results
@@ -228,10 +228,10 @@ auto_persistent() // 参考上文的伪代码实现
 
 ```
 fn persistent_to_file() {
-  if inner.persistent_file_path != null {
-  	err = open(inner.persistent_file_path).write(dump_json(inner))
-  	return err
-  }
+	if inner.persistent_file_path != null {
+		err = open(inner.persistent_file_path).write(dump_json(inner))
+		return err
+	}
 	null
 }
 

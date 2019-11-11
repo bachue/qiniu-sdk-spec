@@ -119,40 +119,40 @@ fn start_uploading_blocks(io_status_manager, uploaded, total_size, part_number, 
 	// 创建一把锁，保护 completed_parts
 	completed_parts_mutex = make_mutex()
 	thread_pool.scope((scope) => { // 这里创建的是 Scope 线程，即当且仅当所有 Scope 线程都处理完毕后，scope() 方法才结束
-    for _ in 0..thread_pool.size() { // 线程池有多大，就有多少线程同时并行
-      scope.spawn(() => {
-      	loop {
-          body = io_status_manager.read(block_size) // 尝试获取文件的下一个 block
-          if body {
-            part_number = part_number_atomic.add(1) + 1
-            last_block_uploaded = 0
-            on_progress = (block_uploaded, _) -> {
-            	if uploading_progress_callback {
-            		added_size = block_uploaded - last_block_uploaded
-            		last_block_uploaded = block_uploaded
-            		uploading_progress_callback(completed_atomic.add(added_size) + added_size, total_size)
-            	}
-            }
-            on_error = () -> {
-            	completed_atomic.add(-last_block_uploaded)
-            	last_block_uploaded = 0
-            }
-            etag, err = upload_part("${base_path}/${part_number}", up_urls, authorization, body, part_number, block_size, on_progress, on_error, record_medium)
-            if err {
-            	io_status_manager.error(err) // 告知 io_status_manager 发生了错误，其他线程也将无法获取任何数据，从而自动退出
-            	return
-            } else {
-            	completed_parts_mutex.lock()
-            	completed_parts.push({ etag: etag, part_number: part_number })
-            	completed_parts_mutex.unlock()
-            	uploaded_atomic.add(block_size)
-            }
-          } else {
-          	return // 无法获取到下一个 block，线程结束
-          }  	
-      	}
-      })
-    }
+		for _ in 0..thread_pool.size() { // 线程池有多大，就有多少线程同时并行
+			scope.spawn(() => {
+				loop {
+					body = io_status_manager.read(block_size) // 尝试获取文件的下一个 block
+					if body {
+						part_number = part_number_atomic.add(1) + 1
+						last_block_uploaded = 0
+						on_progress = (block_uploaded, _) -> {
+							if uploading_progress_callback {
+								added_size = block_uploaded - last_block_uploaded
+								last_block_uploaded = block_uploaded
+								uploading_progress_callback(completed_atomic.add(added_size) + added_size, total_size)
+							}
+						}
+						on_error = () -> {
+							completed_atomic.add(-last_block_uploaded)
+							last_block_uploaded = 0
+						}
+						etag, err = upload_part("${base_path}/${part_number}", up_urls, authorization, body, part_number, block_size, on_progress, on_error, record_medium)
+						if err {
+							io_status_manager.error(err) // 告知 io_status_manager 发生了错误，其他线程也将无法获取任何数据，从而自动退出
+							return
+						} else {
+							completed_parts_mutex.lock()
+							completed_parts.push({ etag: etag, part_number: part_number })
+							completed_parts_mutex.unlock()
+							uploaded_atomic.add(block_size)
+						}
+					} else {
+						return // 无法获取到下一个 block，线程结束
+					}
+				}
+			})
+		}
 	})
 	err = io_status_manager.result()
 	if !err {

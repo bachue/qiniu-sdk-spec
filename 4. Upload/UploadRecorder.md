@@ -11,14 +11,14 @@
 
 ### 支持接口
 
-#### create() 
+#### create()
 
 ##### 接受参数
 
 | 名称    | 类型    | 描述                  |
 | ------- | ------- | --------------------- |
 | recorder | Recorder | 日志记录 |
-| config | Config | 客户端所用配置信息 |
+| config | Config | SDK 客户端所用配置信息 |
 
 ##### 返回参数
 
@@ -29,13 +29,13 @@
 ##### 伪代码实现
 
 ```
-UploadRecorder { 
-	recorder: recorder, 
-	key_generator: (path, key) -> { 	
-		config.recorder_key_generator("upload", path, key) 
+UploadRecorder {
+	recorder: recorder,
+	key_generator: (path, key) -> {
+		config.recorder_key_generator("upload", path, key)
 	}
-	upload_block_lifetime: config.upload_block_lifetime, 
-	always_flush_records: config.always_flush_records 
+	upload_block_lifetime: config.upload_block_lifetime,
+	always_flush_records: config.always_flush_records
 }
 ````
 
@@ -62,7 +62,7 @@ UploadRecorder {
 ##### 伪代码实现
 
 ```
-metadata = FileUploadRecordMediumMetadata { 
+metadata = FileUploadRecordMediumMetadata {
 	file_size: path.file_size(),
 	modified_timestamp: path.modified_timestamp(),
 	upload_id: upload_id,

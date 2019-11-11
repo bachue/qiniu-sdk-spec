@@ -10,7 +10,7 @@
 
 | 名称          | 类型               | 描述                      |
 | ------------- | ------------------ | ------------------------- |
-| config     | Config     | 客户端所用配置信息                |
+| config     | Config     | SDK 客户端所用配置信息                |
 |log_buffer|[u8]| 日志缓存，初始化尺寸为 `config.max_uplog_size` |
 |log_buffer_lock|RWMutex| 日志缓存的读写锁，对于多线程环境，对日志缓存的读写应该使用读写锁保护 |
 | http_client        | Client             | HTTP 客户端               |
@@ -34,7 +34,7 @@
 | sent | uint | 已经发送的数据量，单位为字节 |
 | error_message | String | 错误内容 |
 | total_size | uint | 总共需要发送的数据量，单位为字节 |
-| timestamp | uint64 | 当前客户端时间戳 |
+| timestamp | uint64 | 当前应用程序时间戳 |
 
 ### UpType
 
@@ -93,7 +93,7 @@ if log_buffer_len() < config.max_uplog_size {
 	data = "${record.to_string()}\n"
 	if log_buffer_len() + data.len() < config.max_uplog_size {
 		log_buffer_lock.lock()
-		log_buffer.push(data) 
+		log_buffer.push(data)
 		log_buffer_lock.unlock()
 	}
 }

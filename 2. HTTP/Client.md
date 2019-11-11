@@ -100,7 +100,7 @@ fn try_choice(choice) {
 	}
 	err = null
 	for retried = 0; retried < client.config.http_request_retries; retried += 1 {
-	  begin_at = now()
+		begin_at = now()
 		response, err = client.call(request) // 发送 HTTP 请求，假设该访问按照所有提供的参数处理请求。
 		if !err {
 			if (200..300).include(response.status_code) { // 只有返回值在 [200, 300) 之间才被允许
