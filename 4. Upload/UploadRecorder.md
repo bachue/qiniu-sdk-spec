@@ -205,7 +205,7 @@ for {
 | etag | String | 分块数据的 Etag |
 | part_number    | uint | 分块号码 |
 | created_timestamp    | uint64 | 创建分块的时间戳 |
-| block_size    | uint64 | 分块大小，单位为字节 |
+| block_size    | uint32 | 分块大小，单位为字节 |
 
 ## FileUploadRecordMedium 文件上传日志记录介质
 
@@ -228,7 +228,7 @@ for {
 | ------- | ------- | --------------------- |
 | etag | String | 分块数据的 Etag |
 | part_number | uint | 分块号码 |
-| block_size | uint64 | 分块大小，单位为字节 |
+| block_size | uint32 | 分块大小，单位为字节 |
 
 ##### 返回参数
 

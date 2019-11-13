@@ -140,7 +140,7 @@ fn resolve(base_url) {
 }
 
 fn async_update_cache(base_url) {
-	spawn_thread(() => {
+	global_thread_pool.spawn_thread(() => {
 		lock_and_resolve_and_update_cache(base_url)
 	})
 }
@@ -170,8 +170,12 @@ if base_urls.len() > 0 && chosen.len() == 0 { // 如果所有域名都已经被�
 	chosen = [make_choice(sorted.get(0))]
 }
 
-auto_persistent()
-auto_refresh()
+global_thread_pool.spawn_thread(() -> { // 这里使用一个全局线程池
+	auto_persistent()
+	if !inner.disable_url_resolutions {
+		auto_refresh()
+	}
+})
 
 chosen
 ```
@@ -285,7 +289,7 @@ inner.resolutions.for_each((url, resolution) -> {
 })
 inner.resolutions_lock.unlock()
 if to_refresh_urls.len() > 0 {
-	spawn_thread(() -> {
+	global_thread_pool.spawn_thread(() -> {
 		sync_resolve_urls(to_refresh_urls)
 		inner.last_refresh_time_lock.lock() // 这里假设该锁支持可重入，否则可能会死锁
 		inner.last_refresh_time = now()

@@ -24,7 +24,7 @@
 | key   | String | 对象名称                |
 | vars  | [String:String] | 自定义变量 |
 | metadata  | [String:String] | 元信息 |
-| uploading_progress_callback | fn(uint, uint) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
+| uploading_progress_callback | fn(uint64, uint64) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
 | checksum_enabled | bool | 是否启用校验，总是默认为启用 |
 
 ##### 返回参数
@@ -101,7 +101,7 @@ null, prev_err
 | key   | String | 对象名称                |
 | vars  | [String:String] | 自定义变量 |
 | metadata  | [String:String] | 元信息 |
-| uploading_progress_callback | fn(uint, uint) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
+| uploading_progress_callback | fn(uint64, uint64) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
 
 ##### 返回参数
 

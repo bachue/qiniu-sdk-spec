@@ -23,7 +23,7 @@
 | key              | String              | 对象名称                     |
 | vars             | [String:String] | 自定义变量                   |
 | metadata         | [String:String] | 元信息                       |
-| uploading_progress_callback | fn(uint, uint) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
+| uploading_progress_callback | fn(uint64, uint64) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
 | thread_pool | ThreadPool | 线程池，可以为空 |
 | recorder | UploadRecord | 上传日志记录仪，用于尝试恢复之前的上传 |
 | checksum_enabled | bool                | 是否启用校验，总是默认为启用 |

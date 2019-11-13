@@ -55,8 +55,8 @@
 | idempotent | bool | 本次请求是否具有幂等性 |
 | full_read | bool | 是否将整个响应体全部读入内存 |
 | follow_redirection | bool | 是否追踪重定向 |
-| uploading_progress_callback | fn(uint, uint) | 上传进度回调函数，第一个参数为请求已经上传的数据尺寸，第二个参数为请求总共要上传的数据尺寸 |
-| downloading_progress_callback | fn(uint, uint) | 下载进度回调函数，第一个参数为响应已经下载的数据尺寸，第二个参数为响应总共要下载的数据尺寸 |
+| uploading_progress_callback | fn(uint64, uint64) | 上传进度回调函数，第一个参数为请求已经上传的数据尺寸，第二个参数为请求总共要上传的数据尺寸 |
+| downloading_progress_callback | fn(uint64, uint64) | 下载进度回调函数，第一个参数为响应已经下载的数据尺寸，第二个参数为响应总共要下载的数据尺寸 |
 | response_callback | fn(Response, Duration) -> HTTPError（如果没有 Duration 类型，则使用 uint64，单位为毫秒） | 收到 HTTP 响应后的回调函数，如果解析响应内容失败，可以返回错误并进入重试流程。第一个参数为 HTTP 响应，第二个参数为本次请求响应时间 |
 | error_callback | fn(String, HTTPError, Duration)（如果没有 Duration 类型，则使用 uint64，单位为毫秒） | 收到 HTTP 请求或响应错误后的回调函数。第一个参数为发生错误的基础 URL（含协议，不含路径），第二个参数为错误，第三个参数为本次请求响应时间 |
 

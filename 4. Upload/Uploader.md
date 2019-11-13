@@ -17,7 +17,6 @@
 | 名称          | 类型         | 描述                                                         |
 | ------------- | ------------ | ------------------------------------------------------------ |
 | config        | Config       | SDK 客户端所用配置信息                                           |
-| upload_logger | UploadLogger | 上传日志，如果 `config.uplog_disabled` 为 true，则该属性为 `null` |
 
 ### 支持接口
 
@@ -94,7 +93,7 @@
 | bucket_name     | String     | 存储空间名称               |
 | up_urls_list     | [[String]]     | 上传域名列表                |
 | client     | Client     | HTTP 客户端                |
-| upload_logger | UploadLogger | 上传日志，尽可能引用 UploadManager 中的 upload_logger |
+| upload_logger | UploadLogger | 上传日志，引用 config 中的 upload_logger |
 | recorder | UploadRecorder | 上传日志记录仪 |
 | thread_pool | ThreadPool | 线程池，可以为空 |
 
@@ -144,7 +143,7 @@
 | metadata  | [String:String] | 元信息 |
 | checksum_enabled | bool | 是否启用校验，总是默认为启用 |
 | resumeable_policy | ResumablePolicy | 恢复策略，默认为 `Threshold(config.upload_threshold)` |
-| uploading_progress_callback | fn(uint, uint) | 上传进度回调函数，第一个参数为请求已经上传的数据尺寸，第二个参数为请求总共要上传的数据尺寸 |
+| uploading_progress_callback | fn(uint64, uint64) | 上传进度回调函数，第一个参数为请求已经上传的数据尺寸，第二个参数为请求总共要上传的数据尺寸 |
 | thread_pool | ThreadPool | 专用线程池，可以为空 |
 
 ### 支持接口
@@ -254,7 +253,7 @@ case Never:
 
 | 名称       | 描述       |
 | ---------- | ---------- |
-|Threshold(size)|文件尺寸大于该尺寸则使用可恢复上传，否则使用表单上传|
+|Threshold(uint32)|文件尺寸大于该尺寸则使用可恢复上传，否则使用表单上传|
 |Always|总是使用可恢复上传|
 |Never|总是使用表单上传|
 
