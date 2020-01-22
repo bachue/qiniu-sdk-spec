@@ -11,12 +11,12 @@
 | up_https_urls | [String]                          | HTTPS 协议的上传地址 |
 | io_http_urls | [String]                          | HTTP 协议的下载地址 |
 | io_https_urls | [String]                          | HTTPS 协议的下载地址 |
-| rs_http_url | String | HTTP 协议的 RS 地址 |
-| rs_https_url | String | HTTPS 协议的 RS 地址 |
-| rsf_http_url | String | HTTP 协议的 RSF 地址 |
-| rsf_https_url | String | HTTPS 协议的 RSF 地址 |
-| api_http_url | String | HTTP 协议的 API 地址 |
-| api_https_url | String | HTTPS 协议的 API 地址 |
+| rs_http_urls | [String] | HTTP 协议的 RS 地址 |
+| rs_https_urls | [String] | HTTPS 协议的 RS 地址 |
+| rsf_http_urls | [String] | HTTP 协议的 RSF 地址 |
+| rsf_https_urls | [String] | HTTPS 协议的 RSF 地址 |
+| api_http_urls | [String] | HTTP 协议的 API 地址 |
+| api_https_urls | [String] | HTTPS 协议的 API 地址 |
 
 ## RegionUtils
 
@@ -44,7 +44,7 @@
 
 ##### 伪代码实现
 
-根据当前参数调用 `http(s)://uc.qbox.me/v3/query` 获得 `hosts` 列表。
+根据当前参数调用 `GET http(s)://${config.uc_host}/v3/query` 获得 `hosts` 列表。
 对于每一个 `host` 的 `up` 和 `io` 解析方式如下：
 
 ```
@@ -76,7 +76,7 @@ hosts.map((host) -> {
 })
 ```
 
-至于 rs, rsf 和 api 的域名，可以通过根据 io 的域名推测即可得到。
+至于 rs, rsf 和 api 的域名，目前无法通过 uc 的 API 获取，只能使用 Config 中的配置。
 
 #### 默认内建区域
 

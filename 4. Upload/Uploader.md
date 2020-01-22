@@ -145,6 +145,7 @@
 | resumeable_policy | ResumablePolicy | 恢复策略，默认为 `Threshold(config.upload_threshold)` |
 | uploading_progress_callback | fn(uint64, uint64) | 上传进度回调函数，第一个参数为请求已经上传的数据尺寸，第二个参数为请求总共要上传的数据尺寸 |
 | thread_pool | ThreadPool | 专用线程池，可以为空 |
+| concurrency | uint64 | 最大并发度，如果为零表示不指定 |
 
 ### 支持接口
 
@@ -162,6 +163,7 @@
 | never_be_resumeable() | 总是使用表单上传 | 无 | `uploader.resumeable_policy = Never` |
 | on_uploading_progress() | 设置上传进度回调函数 | uploading_progress_callback | `uploader.uploading_progress_callback = uploading_progress_callback` |
 | thread_pool | 设置专用线程池，注意由于上传不一定总会用到线程池，仅在确认会用到线程池的地方才使用 | thread_pool | `uploader.thread_pool = thread_pool` |
+| concurrency | 设置最大并发度 | uint64 | `uploader.concurrency = concurrency` |
 
 #### upload_file()
 
@@ -191,7 +193,7 @@ fn upload_file_by_form_uploader() {
 }
 
 fn upload_file_by_resumeable_uploader() {
-	ResumeableUploader.upload_file(file_path, file_name, mime, upload_token, key, vars, metadata, checksum_enabled, uploading_progress_callback, thread_pool, bucket_uploader.recorder)
+	ResumeableUploader.upload_file(file_path, file_name, mime, upload_token, key, vars, metadata, checksum_enabled, uploading_progress_callback, thread_pool, concurrency, bucket_uploader.recorder)
 }
 
 switch resumeable_policy {
@@ -232,7 +234,7 @@ case Never:
 
 ```
 fn upload_stream_by_resumeable_uploader() {
-	ResumableUploader.upload_stream(stream, file_name, mime, upload_token, key, vars, metadata, checksum_enabled, uploading_progress_callback, thread_pool)
+	ResumableUploader.upload_stream(stream, file_name, mime, upload_token, key, vars, metadata, checksum_enabled, uploading_progress_callback, thread_pool, concurrency)
 }
 
 fn upload_stream_by_form_uploader() {

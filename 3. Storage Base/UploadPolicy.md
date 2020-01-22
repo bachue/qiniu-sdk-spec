@@ -105,7 +105,7 @@ policy
 | set_insert_only() | 设置 insert_only 属性 | 无 | `policy.insert_only = 1`           |
 | set_overwriteable() | 移除 insert_only 属性 | 无 | `policy.insert_only = 0` |
 | enable_mime_detection() | 设置 detect_mime 属性 | 无 | `policy.detect_mime = 1 ` |
-| disable_mime_detection() | 移除 insert_only 属性 | 无 | `policy.detect_mim = 0` |
+| disable_mime_detection() | 移除 insert_only 属性 | 无 | `policy.detect_mime = 0` |
 | set_token_lifetime() | 设置 deadline 属性 | lifetime | `policy.set_token_deadline(now() + lifetime)` |
 | set_token_deadline() | 设置 deadline 属性 | deadline | `policy.deadline = deadline.unix() as uint32` |
 | enable_infrequent_storage() | 设置 file_type | 无 | `policy.file_type = 1` |
@@ -114,8 +114,8 @@ policy
 | set_return_body() | 设置 return_body | return_body | `policy.return_url = return_body` |
 | set_callback() | 设置 callback 相关属性 | urls, host, body, type | `policy.callback_url = urls.join(';'); policy.callback_host = host; policy.callback_body = body; policy.callback_body_type = type` |
 | save_as() | 设置 save_key 相关属性 | save_key, force | `policy.save_key = save_key; policy.force_save_key = force` |
-| set_file_size_range() | 设置 fsize | min, max | `policy.fsize_min = min; policy.fsize_limit = max` |
-| limit_mime() | 设置 MIME 列表 | mime | `policy.mime_limit = mime.join(';')` |
+| set_file_size_limitation() | 设置 fsize | min, max | `policy.fsize_min = min; policy.fsize_limit = max` |
+| set_mime_types() | 设置 MIME 列表 | mime | `policy.mime_limit = mime.join(';')` |
 | set_object_lifetime() | 设置对象有效期 | lifetime | `policy.delete_after_days = (lifetime + 86400 -1) / 86400` |
 | set_object_deadline() | 设置对象过期时间 | deadline | `policy.set_object_lifetime(deadline - now())` |
 
@@ -125,11 +125,12 @@ policy
 | ---- | ---- | -------- | -------- |
 | bucket() | Bucket 名称 | String | `policy.scope.split(':', 2).get(0)`           |
 | key() | Object 名称 | String | `policy.scope.split(':', 2).get(1)` |
-| prefixal() | 是否匹配 Object 名称前缀 | bool | `policy.is_prefixal_scope == 1` |
-| insert_only() | 是否不可覆盖 | bool | `policy.insert_only == 1` |
-| mime_detection() | 是否自动检测 MIME | bool | `policy.detect_ime == 1` |
-| deadline() | 过期时间 | Time | `unix_time(policy.deadline)` |
-| lifetime() | 生命周期 | Duration | `deadline() - now()` |
+| use_prefixal_object_key() | 是否匹配 Object 名称前缀 | bool | `policy.is_prefixal_scope == 1` |
+| is_insert_only() | 是否不可覆盖 | bool | `policy.insert_only == 1` |
+| is_overwriteable() | 是否可以覆盖 | bool | `policy.insert_only != 1` |
+| mime_detection_enabled() | 是否自动检测 MIME | bool | `policy.detect_mime == 1` |
+| token_deadline() | 过期时间 | Time | `unix_time(policy.deadline)` |
+| token_lifetime() | 生命周期 | Duration | `deadline() - now()` |
 | return_url() | 重定向地址 | String | `policy.return_url` |
 | return_body() | 返回内容 | String | `policy.return_body` |
 | callback_urls() | 回调地址 | [String] | `policy.callback_url.split(';')` |
@@ -137,10 +138,11 @@ policy
 | callback_body() | 回调请求体 | String | `policy.callback_body` |
 | callback_body_type() | 回调请求体类型 | String | `policy.callback_body_type` |
 | save_key() | 自定义 Object 名称 | String | `policy.save_key` |
-| force_save_key() | 强制使用自定义 Object 名称 | String | `policy.force_save_key` |
-| file_size_range() | 文件尺寸范围 | (uint, uint) | `(policy.fsize_min, policy.fsize_limit)` |
-| mime_limit() | MIME 类型限制 | [String] | `policy.mime_limit.split(';')` |
-| infrequent_storage() | 低频存储 | bool | `policy.file_type == 1` |
+| is_save_key_forced() | 强制使用自定义 Object 名称 | String | `policy.force_save_key` |
+| file_size_limitation() | 文件尺寸范围 | (uint, uint) | `(policy.fsize_min, policy.fsize_limit)` |
+| mime_types() | MIME 类型限制 | [String] | `policy.mime_limit.split(';')` |
+| is_normal_storage_used() | 普通存储 | bool | `!policy.file_type || policy.file_type == 0` |
+| is_infrequent_storage_used() | 低频存储 | bool | `policy.file_type == 1` |
 | object_lifetime() | 对象生命周期 | Duration | `policy.delete_after_days * 86400` |
 | object_deadline() | 对象过期时间 | Time | `now() + object_lifetime()` |
 

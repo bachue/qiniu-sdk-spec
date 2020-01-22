@@ -74,7 +74,7 @@ encoded_data = urlsafe_base64_encode(data)
 
 ```
 parsed_url = parse_url(url)
-data_to_sign = []
+data_to_sign = ""
 data_to_sign.append(parsed_url.path())
 if parsed_url.query() {
 	data_to_sign.append('?')
@@ -110,16 +110,35 @@ if content_type && body && content_type == "application/x-www-form-urlencoded" {
 #### 伪代码实现
 
 ```
+fn normalize_header_key(header_key) {
+	// 七牛服务器对于自定义 Header 在 Token 计算时的格式必须是 Aaa-Bbb-Ccc 的形态。如果用户传入的 Header 并非遵照这个格式，则需要自行转换。
+	upper = true
+	for (header_byte, index) in header_key.each_byte_with_index() {
+		if upper && header_byte.is_lowercase() {
+			header_key.set_byte(index, header_byte.to_uppercase())
+		} else if !upper && header_byte.is_uppercase() {
+			header_key.set_byte(index, header_byte.to_lowercase())
+		} else {
+			upper = header_byte == '-'
+		}
+	}
+}
+
 fn append_data_to_sign_for_x_qiniu_headers(data_to_sign, headers) {
-	x_qiniu_headers = headers.filter((key, _) -> { return key.starts_with("X-Qiniu-") }).map((key, value) -> { return "${key}: ${value}" })
-	for header_line in x_qiniu_headers.sort() {
-		data_to_sign.append(header_line)
+	x_qiniu_headers = headers.
+		filter((key, _) -> { return key.len() > "X-Qiniu-".len() }).
+		filter((key, _) -> { return key.starts_with("X-Qiniu-") })
+	// 只有 Header Key 以 "X-Qiniu-" 开头且不等于 "X-Qiniu-" 才会被纳入 Token 计算
+	for (header_key, header_value) in x_qiniu_headers.sort() { // 这里的排序会先比较两个 Header 的 Header Key，如果相同，则比较 Header Value。不能将两个 Header 连接成字符串后比较。
+		data_to_sign.append(normalize_header_key(header_key))
+		data_to_sign.append(": ")
+		data_to_sign.append(header_value)
 		data_to_sign.append('\n')
 	}
 }
 
 parsed_url = parse_url(url)
-data_to_sign = []
+data_to_sign = ""
 data_to_sign.append(method.upper())
 data_to_sign.append(' ')
 data_to_sign.append(parsed_url.path())
@@ -132,17 +151,17 @@ if parsed_url.port() { // 这里的语义是，URL 中是否显式包含端口�
 	data_to_sign.append(":${parsed_url.port()}")
 }
 data_to_sign.append('\n')
-content_type = headers.get("content_type")
-if content_type {
-	data_to_sign.append("\nContent-Type: ${content_type}\n")
-	append_data_to_sign_for_x_qiniu_headers(data_to_sign, headers)
-	data_to_sign.append('\n')
-	if body && (content_type == "application/x-www-form-urlencoded" || content_type == "application/json") {
-		data_to_sign.append(body)
-	}
-} else {
-	append_data_to_sign_for_x_qiniu_headers(data_to_sign, headers)
-	data_to_sign.append('\n')
+content_type = headers.get("Content-Type")
+if !content_type { // Content-Type 必须有值，如果没有传入就填入默认值 "application/x-www-form-urlencoded"
+	content_type = "application/x-www-form-urlencoded"
+	headers.set("content_type", "application/x-www-form-urlencoded")
+}
+
+data_to_sign.append("\nContent-Type: ${content_type}\n")
+append_data_to_sign_for_x_qiniu_headers(data_to_sign, headers)
+data_to_sign.append('\n')
+if body && (content_type == "application/x-www-form-urlencoded" || content_type == "application/json") {
+	data_to_sign.append(body)
 }
 
 "Qiniu ${sign(data_to_sign)}"

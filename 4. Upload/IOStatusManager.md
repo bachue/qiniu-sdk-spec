@@ -18,6 +18,7 @@
 | 名称           | 类型         | 描述                                      |
 | -------------- | ------------ | ----------------------------------------- |
 | reader   | Reader | 输入流 |
+| count | uint64 | 当前分片编号 |
 
 如果是 Error，则包含以下数据
 
@@ -44,6 +45,7 @@
 | 名称    | 类型    | 描述                  |
 | ------- | ------- | --------------------- |
 | data | [uint8] | 读取的数据流，或 null |
+| count | uint64 | 数据流所在分片编号 |
 
 #### 伪代码实现
 
@@ -56,21 +58,25 @@ if status == Uploading {
 		if err {
 			status = Error(err)
 			lock.unlock()
-			return null
+			return null, 0
 		}
 		if chunk.len() == 0 {
+			count += 1
+			c = count
 			lock.unlock()
-			return data
+			return data, c
 		}
 		data.push(chunk)
 		if data.len() == size {
+			count += 1
+			c = count
 			lock.unlock()
-			return data
+			return data, c
 		}
 	}
 } else {
 	lock.unlock()
-	null
+	null, 0
 }
 ```
 

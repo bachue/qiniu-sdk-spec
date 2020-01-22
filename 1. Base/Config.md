@@ -2,7 +2,13 @@
 
 | 名称                     | 类型                                                        | 描述                                                         |
 | ------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------ |
+| appended_user_agent                | String                                                   | 追加 UserAgent，默认为空             |
 | use_https                | bool                                                        | 是否使用 HTTPS 协议，默认为 false                            |
+| uc_host | String | UC 主机地址，默认为 `"uc.qbox.me"` |
+| rs_host | String | RS 主机地址，默认为 `"rs.qbox.me"` |
+| rsf_host | String | RSF 主机地址，默认为 `"rsf.qbox.me"` |
+| api_host | String | API 主机地址，默认为 `"api.qiniu.com"` |
+| uplog_host | String | UpLog 主机地址，默认为 `"uplog.qbox.me"` |
 | upload_token_lifetime    | Duration（如果没有 Duration 类型，则使用 uint64，单位为秒） | 上传凭证默认有效期，默认为 3600 秒                           |
 | batch_max_operation_size | uint                                                        | 最大批量操作数，默认为 1000                                  |
 | upload_threshold         | uint32                                                    | 如果上传文件尺寸大于该值，将自动使用分片上传，否则，使用表单上传。单位为字节，默认为 4 MB |

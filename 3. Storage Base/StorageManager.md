@@ -4,6 +4,7 @@
 | ------------- | ------------ | ------------------------------------------------------------ |
 | credential    | Credential   | 客户端存储的 AccessKey，SecretKey                            |
 | http_client        | Client       | HTTP 客户端                                           |
+| rs_url | String | RS 服务器 URL |
 
 ## 支持接口
 
@@ -22,6 +23,10 @@
 | names | [String] | 存储空间上传器 |
 | error | HTTPError | HTTP 错误消息 |
 
+##### 伪代码实现
+
+根据当前参数调用 `GET ${rs_url}/buckets` 获得存储空间名称列表。API 鉴权方式为 Qiniu。
+
 ### create_bucket()
 
 创建存储空间
@@ -39,9 +44,13 @@
 | -------- | -------------- | -------------- |
 | error | HTTPError | HTTP 错误消息 |
 
+##### 伪代码实现
+
+根据当前参数调用 `POST ${rs_url}/mkbucketv3/${bucket}/region/{region_id}` 创建存储空间。API 鉴权方式为 Qiniu。
+
 ### drop_bucket()
 
-删除存储空间
+删除存储空间。必须由用户确保该 Bucket 已经没有文件才允许删除。
 
 ##### 接受参数
 
@@ -54,6 +63,10 @@
 | 名称     | 类型           | 描述           |
 | -------- | -------------- | -------------- |
 | error | HTTPError | HTTP 错误消息 |
+
+##### 伪代码实现
+
+根据当前参数调用 `POST ${rs_url}/drop/${bucket}` 删除存储空间。API 鉴权方式为 Qiniu。
 
 ### upload_manager()
 

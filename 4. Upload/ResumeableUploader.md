@@ -25,6 +25,7 @@
 | metadata         | [String:String] | 元信息                       |
 | uploading_progress_callback | fn(uint64, uint64) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
 | thread_pool | ThreadPool | 线程池，可以为空 |
+| concurrency | uint64 | 最大并发度，如果为零表示不指定 |
 | recorder | UploadRecord | 上传日志记录仪，用于尝试恢复之前的上传 |
 | checksum_enabled | bool                | 是否启用校验，总是默认为启用 |
 
@@ -111,20 +112,24 @@ fn complete_parts(path, up_urls, authorization, completed_parts) {
 	make_upload_result(response), null
 }
 
-fn start_uploading_blocks(io_status_manager, uploaded, total_size, part_number, base_path, up_urls, authorization, completed_parts, block_size, record_medium, thread_pool) {
+fn start_uploading_blocks(io_status_manager, uploaded, total_size, initial_part_number, base_path, up_urls, authorization, completed_parts, block_size, record_medium, thread_pool, concurrency) {
 	// 这里创建多个原子变量，在线程池中使用
 	uploaded_atomic = make_atomic(uploaded)
 	completed_atomic = make_atomic(uploaded)
-	part_number_atomic = make_atomic(part_number)
 	// 创建一把锁，保护 completed_parts
 	completed_parts_mutex = make_mutex()
+	
+	if concurrency > 0 {
+		concurrency = thread_pool.size() // 如果不指定并发度，则线程池有多大，就有多少线程同时并行
+	}
+	
 	thread_pool.scope((scope) => { // 这里创建的是 Scope 线程，即当且仅当所有 Scope 线程都处理完毕后，scope() 方法才结束
-		for _ in 0..thread_pool.size() { // 线程池有多大，就有多少线程同时并行
+		for _ in 0..concurrency {
 			scope.spawn(() => {
 				loop {
-					body = io_status_manager.read(block_size) // 尝试获取文件的下一个 block
+					body, read_count = io_status_manager.read(block_size) // 尝试获取文件的下一个 block
 					if body {
-						part_number = part_number_atomic.add(1) + 1
+						part_number = initial_part_number + read_count
 						last_block_uploaded = 0
 						on_progress = (block_uploaded, _) -> {
 							if uploading_progress_callback {
@@ -164,7 +169,7 @@ fn start_uploading_blocks(io_status_manager, uploaded, total_size, part_number, 
 	}
 }
 
-fn try_to_resume(base_path, file, total_size, block_size, authorization, thread_pool) {
+fn try_to_resume(base_path, file, total_size, block_size, authorization, thread_pool, concurrency) {
 	metadata, blocks, err = recorder.load(file_path, key)
 	if err {
 		return null, err
@@ -188,7 +193,7 @@ fn try_to_resume(base_path, file, total_size, block_size, authorization, thread_
 	}
 	path = "${base_path}/${metadata.upload_id}"
 	begin_at = now()
-	result, err, uploaded = start_upload_blocks(make_io_status_manager(file), io_offset, total_size, blocks.len(), path, metadata.up_urls, authorization, completed_parts, block_size, record_medium, thread_pool)
+	result, err, uploaded = start_uploading_blocks(make_io_status_manager(file), io_offset, total_size, blocks.len(), path, metadata.up_urls, authorization, completed_parts, block_size, record_medium, thread_pool, concurrency)
 	if err {
 		if upload_logger {
 			upload_logger.log(make_upload_log_record_from_chunked_error(now() - begin_at, ChunkedV2, err, uploaded - io_offset, total_size - io_offset))
@@ -201,7 +206,7 @@ fn try_to_resume(base_path, file, total_size, block_size, authorization, thread_
 	result, err
 }
 
-fn upload(base_path, up_urls, file, total_size, block_size, authorization, thread_pool) {
+fn upload(base_path, up_urls, file, total_size, block_size, authorization, thread_pool, concurrency) {
 	upload_id, err = init_parts(path, up_urls, authorization)
 	if err {
 		return null, err, 0
@@ -210,12 +215,12 @@ fn upload(base_path, up_urls, file, total_size, block_size, authorization, threa
 	if file.path() { // 确定必须是文件，如果不是则无法记录
 		record_medium = recorder.open_and_write_metadata(file.path(), key, upload_id, up_urls)
 	}
-	start_upload_blocks(make_io_status_manager(file), 0, total_size, 0, path, up_urls, authorization, [], block_size, record_medium, thread_pool)
+	start_uploading_blocks(make_io_status_manager(file), 0, total_size, 0, path, up_urls, authorization, [], block_size, record_medium, thread_pool, concurrency)
 }
 
-fn upload_and_log(base_path, up_urls, file, total_size, block_size, authorization, thread_pool) {
+fn upload_and_log(base_path, up_urls, file, total_size, block_size, authorization, thread_pool, concurrency) {
 	begin_at = now()
-	result, err, uploaded = upload(base_path, up_urls, file, block_size, authorization, thread_pool)
+	result, err, uploaded = upload(base_path, up_urls, file, block_size, authorization, thread_pool, concurrency)
 	if err {
 		if upload_logger {
 			upload_logger.log(make_upload_log_record_from_chunked_error(now() - begin_at, ChunkedV2, err, uploaded, total_size))
@@ -233,8 +238,15 @@ total_size = file.size()
 block_size = bucket_uploader.upload_manager.config.upload_block_size
 authorization = "UpToken ${upload_token}"
 base_path = "/buckets/${bucket_uploader.bucket_name}/objects/{encode_key(key)}/uploads"
-thread_pool = thread_pool || bucket_uploader.thread_pool || make_thread_pool(3) // 优先使用参数中的线程池，如果不存在，使用 BucketUploader 的，如果依然不存在，则创建一个线程池，初始化为 3 个线程
-result, err = try_to_resume(base_path, file, total_size, block_size, authorization, thread_pool) // 先尝试恢复，恢复失败也不要紧
+thread_pool ||= bucket_uploader.thread_pool // 优先使用参数中的线程池，如果不存在，使用 BucketUploader 的
+if !thread_pool {// 如果依然不存在，则创建一个线程池
+	if concurrency > 0 {
+		thread_pool = make_thread_pool(concurrency) // 如果指定了并发度，则线程池尺寸与并发度相同
+	} else {
+		thread_pool = make_thread_pool(3) // 没有指定并发度，则默认创建包含三个线程的线程池
+	}
+}
+result, err = try_to_resume(base_path, file, total_size, block_size, authorization, thread_pool, concurrency) // 先尝试恢复，恢复失败也不要紧
 if !err && result {
 	return result, null
 }
@@ -273,6 +285,7 @@ null, prev_err
 | metadata  | [String:String] | 元信息 |
 | uploading_progress_callback | fn(uint, uint) | 上传进度回调方法，第一个参数为已上传的数据量，第二个参数为总共将要上传的数据量 |
 | thread_pool | ThreadPool | 线程池，可以为空 |
+| concurrency | uint64 | 最大并发度，如果为零表示不指定 |
 | checksum_enabled | bool                | 是否启用校验，总是默认为启用 |
 
 ##### 返回参数
@@ -292,7 +305,14 @@ upload(up_urls.get(0), stream, file_name, mime, upload_token, key, vars, metadat
 
 authorization = "UpToken ${upload_token}"
 base_path = "/buckets/${bucket_uploader.bucket_name}/objects/{encode_key(key)}/uploads"
-thread_pool = thread_pool || bucket_uploader.thread_pool || make_thread_pool(3) // 优先使用参数中的线程池，如果不存在，使用 BucketUploader 的，如果依然不存在，则创建一个线程池，初始化为 3 个线程
+thread_pool ||= bucket_uploader.thread_pool // 优先使用参数中的线程池，如果不存在，使用 BucketUploader 的
+if !thread_pool {// 如果依然不存在，则创建一个线程池
+	if concurrency > 0 {
+		thread_pool = make_thread_pool(concurrency) // 如果指定了并发度，则线程池尺寸与并发度相同
+	} else {
+		thread_pool = make_thread_pool(3) // 没有指定并发度，则默认创建包含三个线程的线程池
+	}
+}
 
 upload_and_log(base_path, up_urls.get(0), stream, null, block_size, authorization, thread_pool)
 ```
